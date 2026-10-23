@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sightra Vision Page with Screen Reader Plugged In</title>
+  <link rel="stylesheet" href="../public/css/screen-reader.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lexend:wght@700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      background: #131313;
+      color: #e5e2e1;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+    .vision-bg {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, #1b262c 0%, #080c0e 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hud-center {
+      border: 2px dashed rgba(0, 229, 255, 0.3);
+      width: 240px;
+      height: 240px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .scan-btn-container {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    #scanBtn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(0, 229, 255, 0.15);
+      border: 3px solid #00e5ff;
+      color: #00e5ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
+      transition: all 0.3s ease;
+    }
+    #scanBtn:hover {
+      transform: scale(1.08);
+      background: rgba(0, 229, 255, 0.25);
+    }
+    #scanBtn.active {
+      border-color: #ff4757;
+      color: #ff4757;
+      background: rgba(255, 71, 87, 0.2);
+      box-shadow: 0 0 25px rgba(255, 71, 87, 0.4);
+    }
+    .scan-label {
+      font-family: 'Lexend', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #00e5ff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Mock Sightra Vision Page Structure -->
+  <div class="vision-bg">
+    <div id="dynamic-boxes" style="position: absolute; inset: 0;"></div>
+    <div class="hud-center">
+      <span class="material-symbols-outlined" style="font-size: 48px; color: rgba(0,229,255,0.4);">center_focus_weak</span>
+    </div>
+  </div>
+
+  <div class="scan-btn-container">
+    <span id="scanLabel" class="scan-label">INITIATE SIGHT SCAN</span>
+    <button id="scanBtn" aria-label="Toggle Sight Scan">
+      <span class="material-symbols-outlined" style="font-size: 38px;">visibility</span>
+    </button>
+  </div>
+
+  <!-- Plug in the Screen Reader using the standalone UMD bundle! -->
+  <script src="../dist/sightra-screen-reader.js"></script>
+  <script>
+    // Initialize the screen reader onto the page in 1 line
+    const plugin = SightraScreenReader.mountToVisionPage({
+      mockMode: true,
+      initialMode: 'continuous'
+    });
+
+    // Toggle scan button for demonstration
+    const btn = document.getElementById('scanBtn');
+    const label = document.getElementById('scanLabel');
+    let scanning = false;
+
+    btn.addEventListener('click', () => {
+      scanning = !scanning;
+      if (scanning) {
+        btn.classList.add('active');
+        label.textContent = 'STOP SIGHT SCAN';
+        label.style.color = '#ff4757';
+
+        // Simulate incoming perception results every 4 seconds
+        window._mockStream = setInterval(() => {
+          plugin.engine.processVisionResult({
+            analysisText: 'Path clear ahead. Doorway detected 3 meters at 12 o\'clock.',
+            hazardAlert: null,
+            objects: [
+              { label: 'door', confidence: 0.92, box: [260, 120, 120, 240], distance: 'medium', position: '12 o\'clock' }
+            ]
+          });
+        }, 4000);
+      } else {
+        btn.classList.remove('active');
+        label.textContent = 'INITIATE SIGHT SCAN';
+        label.style.color = '#00e5ff';
+        clearInterval(window._mockStream);
+      }
+    });
+  </script>
+</body>
+</html>

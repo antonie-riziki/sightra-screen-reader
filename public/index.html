@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sightra Screen Reader | Assistive Perception Interface</title>
+  <link rel="stylesheet" href="css/screen-reader.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lexend:wght@600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #080c0e;
+      color: #f1f7f9;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+    .viewport-area {
+      flex: 1;
+      position: relative;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      user-select: none;
+    }
+    video, canvas, .sim-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .detection-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .obj-box {
+      position: absolute;
+      border: 2px solid var(--sr-cyan);
+      background: rgba(0, 229, 255, 0.08);
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+    .obj-box.obstacle {
+      border-color: var(--sr-lime);
+      background: rgba(195, 244, 0, 0.12);
+    }
+    .obj-label {
+      position: absolute;
+      top: -24px;
+      left: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--sr-cyan);
+      text-transform: uppercase;
+      font-family: 'Lexend', sans-serif;
+    }
+    .obj-box.obstacle .obj-label {
+      color: var(--sr-lime);
+    }
+    .controls-bar {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 0.75rem;
+      background: rgba(15, 20, 22, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--sr-surface-border);
+      padding: 0.75rem 1.25rem;
+      border-radius: 9999px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7), 0 0 25px var(--sr-cyan-glow);
+      z-index: 50;
+      max-width: 95vw;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn-action {
+      background: var(--sr-surface);
+      border: 1px solid var(--sr-surface-border);
+      color: #fff;
+      border-radius: 9999px;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      min-height: 48px;
+    }
+    .btn-action:hover, .btn-action:focus-visible {
+      border-color: var(--sr-cyan);
+      background: rgba(0, 229, 255, 0.12);
+      outline: 2px solid var(--sr-cyan);
+      outline-offset: 2px;
+    }
+    .btn-primary-action {
+      background: var(--sr-cyan);
+      color: #000;
+      border-color: var(--sr-cyan);
+      font-family: 'Lexend', sans-serif;
+      font-weight: 800;
+      box-shadow: 0 0 15px var(--sr-cyan-glow);
+    }
+    .btn-primary-action:hover {
+      background: #73f2ff;
+      transform: scale(1.03);
+    }
+    .btn-primary-action.active {
+      background: var(--sr-hazard);
+      color: #fff;
+      box-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+    }
+    .side-drawer {
+      position: absolute;
+      right: 1.5rem;
+      top: 5rem;
+      width: 320px;
+      background: rgba(15, 20, 22, 0.92);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--sr-surface-border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    @media (max-width: 768px) {
+      .side-drawer { display: none; }
+    }
+    .drawer-title {
+      font-family: 'Lexend', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--sr-cyan);
+      text-transform: uppercase;
+      margin: 0;
+      letter-spacing: 0.08em;
+    }
+    .shortcut-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+    .kbd-chip {
+      background: var(--sr-surface);
+      border: 1px solid var(--sr-surface-border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--sr-lime);
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-viewport" class="sr-skip-link">Skip to Interactive Viewport</a>
+
+  <div class="app-container">
+    <!-- Camera Viewport & Touch Area -->
+    <main id="main-viewport" class="viewport-area" role="region" aria-label="Camera perception viewport. Touch or click to explore objects spatially.">
+      <video id="liveVideo" autoplay playsinline muted></video>
+      <canvas id="liveCanvas" class="hidden"></canvas>
+      <div id="detectionOverlay" class="detection-overlay"></div>
+      <div id="touchCursor" class="sr-touch-reticle" style="display:none;"></div>
+    </main>
+
+    <!-- Side Guide & Shortcuts -->
+    <aside class="side-drawer" aria-label="Screen Reader Controls Guide">
+      <h2 class="drawer-title">Accessibility Shortcuts</h2>
+      <div class="shortcut-row">
+        <span>Pause / Resume</span>
+        <span class="kbd-chip">Space</span>
+      </div>
+      <div class="shortcut-row">
+        <span>Repeat Last</span>
+        <span class="kbd-chip">R</span>
+      </div>
+      <div class="shortcut-row">
+        <span>Hazard Summary</span>
+        <span class="kbd-chip">H</span>
+      </div>
+      <div class="shortcut-row">
+        <span>Object Audit</span>
+        <span class="kbd-chip">O</span>
+      </div>
+      <div class="shortcut-row">
+        <span>Cycle Modes</span>
+        <span class="kbd-chip">M</span>
+      </div>
+      <div class="shortcut-row">
+        <span>Text / OCR</span>
+        <span class="kbd-chip">T</span>
+      </div>
+      <div class="shortcut-row">
+        <span>Adjust Speed</span>
+        <span class="kbd-chip">[ / ]</span>
+      </div>
+      <div class="shortcut-row">
+        <span>Silence Speech</span>
+        <span class="kbd-chip">Esc</span>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--sr-surface-border);margin:0;" />
+      <div>
+        <label for="feedSelect" style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--sr-text-muted);">Test Simulation Feed</label>
+        <select id="feedSelect" style="width:100%;margin-top:0.4rem;background:var(--sr-surface);color:#fff;border:1px solid var(--sr-surface-border);border-radius:0.5rem;padding:0.4rem;font-size:0.8rem;">
+          <option value="sim_clear">1. Clear Hallway (Free Movement)</option>
+          <option value="sim_obstacles">2. Living Room Obstacles (Chair & Table)</option>
+          <option value="sim_hazard">3. Urgent Hazard (Staircase Down)</option>
+          <option value="sim_sign">4. Wall Signage ("EXIT TO STREET")</option>
+          <option value="camera">5. Live Web Camera Feed</option>
+        </select>
+      </div>
+    </aside>
+
+    <!-- Bottom Controls -->
+    <div class="controls-bar" role="toolbar" aria-label="Sightra Screen Reader Toolbar">
+      <button id="toggleScanBtn" class="btn-action btn-primary-action" aria-label="Start Sight Scan">
+        <span class="material-symbols-outlined">visibility</span>
+        <span id="scanBtnText">START SIGHT SCAN</span>
+      </button>
+
+      <button id="touchExploreBtn" class="btn-action" aria-label="Touch Exploration Mode">
+        <span class="material-symbols-outlined">touch_app</span>
+        <span>TOUCH EXPLORE</span>
+      </button>
+
+      <button id="textReaderBtn" class="btn-action" aria-label="Text Reading Mode">
+        <span class="material-symbols-outlined">menu_book</span>
+        <span>READ TEXT</span>
+      </button>
+
+      <button id="auditBtn" class="btn-action" aria-label="Audit All Objects">
+        <span class="material-symbols-outlined">list_alt</span>
+        <span>OBJECT AUDIT</span>
+      </button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ScreenReaderEngine } from '../src/core/ScreenReaderEngine.js';
+    import { ScreenReaderHUD } from '../src/ui/ScreenReaderHUD.js';
+
+    const video = document.getElementById('liveVideo');
+    const canvas = document.getElementById('liveCanvas');
+    const overlay = document.getElementById('detectionOverlay');
+    const toggleBtn = document.getElementById('toggleScanBtn');
+    const scanBtnText = document.getElementById('scanBtnText');
+    const feedSelect = document.getElementById('feedSelect');
+    const viewport = document.getElementById('main-viewport');
+    const reticle = document.getElementById('touchCursor');
+
+    // Instantiate Screen Reader
+    const engine = new ScreenReaderEngine({
+      endpoint: '/api/navigation/stream/',
+      mockMode: true,
+      speechRate: 1.0,
+      enableEarcons: true,
+      enableHaptics: true,
+      enableKeyboardShortcuts: true,
+    });
+
+    const hud = new ScreenReaderHUD(engine, document.body);
+
+    let isScanning = false;
+    let cameraStream = null;
+    let scanInterval = null;
+
+    // Simulation Feeds Data
+    const SIM_FEEDS = {
+      sim_clear: {
+        analysisText: "The path ahead is completely clear. You are safe to continue forward.",
+        hazardAlert: null,
+        objects: [
+          { label: "pathway", confidence: 0.95, box: [180, 100, 280, 360], distance: "far", position: "12 o'clock" }
+        ]
+      },
+      sim_obstacles: {
+        analysisText: "Chair at your 10 o'clock, 1 meter away. Open pathway slightly to your right.",
+        hazardAlert: null,
+        objects: [
+          { label: "chair", confidence: 0.91, box: [80, 160, 120, 180], distance: "near", position: "10 o'clock" },
+          { label: "table", confidence: 0.87, box: [380, 200, 180, 160], distance: "medium", position: "2 o'clock" }
+        ]
+      },
+      sim_hazard: {
+        analysisText: "Caution: Staircase descending directly in front of you. Halt and step carefully.",
+        hazardAlert: "Staircase drop-off directly ahead. Stop immediately.",
+        objects: [
+          { label: "stairs", confidence: 0.94, box: [160, 220, 320, 240], distance: "immediate", position: "12 o'clock" }
+        ]
+      },
+      sim_sign: {
+        analysisText: "Sign reads: EMERGENCY EXIT TO MAIN STREET. Keep door clear at all times.",
+        hazardAlert: null,
+        objects: [
+          { label: "exit sign", confidence: 0.96, box: [220, 80, 200, 100], distance: "medium", position: "12 o'clock" }
+        ]
+      }
+    };
+
+    function renderBoundingBoxes(objects) {
+      overlay.innerHTML = '';
+      if (!objects) return;
+      objects.forEach(obj => {
+        const [x, y, w, h] = obj.box;
+        const boxEl = document.createElement('div');
+        const isObs = obj.label !== 'pathway';
+        boxEl.className = `obj-box ${isObs ? 'obstacle' : ''}`;
+        boxEl.style.left = `${(x / 640) * 100}%`;
+        boxEl.style.top = `${(y / 480) * 100}%`;
+        boxEl.style.width = `${(w / 640) * 100}%`;
+        boxEl.style.height = `${(h / 480) * 100}%`;
+
+        boxEl.innerHTML = `<span class="obj-label">${obj.label} · ${obj.distance}</span>`;
+        overlay.appendChild(boxEl);
+      });
+    }
+
+    async function startCamera() {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        video.srcObject = cameraStream;
+        await video.play();
+      } catch (err) {
+        console.warn('Camera fallback to simulation:', err);
+        feedSelect.value = 'sim_obstacles';
+      }
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+        video.srcObject = null;
+      }
+    }
+
+    function triggerScanTick() {
+      const selected = feedSelect.value;
+      if (selected === 'camera') {
+        // Draw frame and send
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        const b64 = canvas.toDataURL('image/jpeg', 0.4);
+        engine.bridge.sendFrame(b64).then(res => {
+          renderBoundingBoxes(res.objects);
+          engine.processVisionResult(res);
+        });
+      } else {
+        const sim = SIM_FEEDS[selected] || SIM_FEEDS.sim_clear;
+        renderBoundingBoxes(sim.objects);
+        engine.processVisionResult({
+          analysisText: sim.analysisText,
+          hazardAlert: sim.hazardAlert,
+          objects: sim.objects
+        });
+      }
+    }
+
+    // Toggle Scan Action
+    toggleBtn.addEventListener('click', async () => {
+      isScanning = !isScanning;
+      if (isScanning) {
+        if (feedSelect.value === 'camera') await startCamera();
+        engine.start();
+        toggleBtn.classList.add('active');
+        scanBtnText.textContent = 'STOP SIGHT SCAN';
+        triggerScanTick();
+        scanInterval = setInterval(triggerScanTick, 4500);
+      } else {
+        clearInterval(scanInterval);
+        engine.stop();
+        stopCamera();
+        toggleBtn.classList.remove('active');
+        scanBtnText.textContent = 'START SIGHT SCAN';
+        overlay.innerHTML = '';
+      }
+    });
+
+    // Touch & Cursor Exploration
+    function handleTouchInspect(e) {
+      if (!isScanning) return;
+      const rect = viewport.getBoundingClientRect();
+      const cx = e.clientX || (e.touches && e.touches[0]?.clientX);
+      const cy = e.clientY || (e.touches && e.touches[0]?.clientY);
+      if (cx === undefined || cy === undefined) return;
+
+      reticle.style.display = 'block';
+      reticle.style.left = `${cx}px`;
+      reticle.style.top = `${cy}px`;
+
+      engine.inspectPoint(cx, cy, rect);
+    }
+
+    viewport.addEventListener('pointerdown', handleTouchInspect);
+    viewport.addEventListener('pointermove', (e) => {
+      if (e.buttons > 0) handleTouchInspect(e);
+    });
+    viewport.addEventListener('touchmove', handleTouchInspect);
+
+    // Toolbar Buttons
+    document.getElementById('touchExploreBtn').onclick = () => engine.setMode('touch');
+    document.getElementById('textReaderBtn').onclick = () => {
+      feedSelect.value = 'sim_sign';
+      engine.setMode('text');
+      triggerScanTick();
+    };
+    document.getElementById('auditBtn').onclick = () => engine.announceObjectAudit();
+
+    feedSelect.onchange = () => {
+      if (isScanning) triggerScanTick();
+    };
+  </script>
+</body>
+</html>

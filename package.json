@@ -1,0 +1,35 @@
+{
+  "name": "sightra-screen-reader",
+  "version": "1.0.0",
+  "description": "Accessible, high-contrast, spatial audio screen reader engine designed to plug directly onto Sightra vision perception pipelines.",
+  "main": "dist/sightra-screen-reader.js",
+  "module": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "python3 test/run_tests.py",
+    "start": "python3 -m http.server 8080 --directory public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antonie-riziki/sightra-screen-reader.git"
+  },
+  "keywords": [
+    "assistive-technology",
+    "screen-reader",
+    "sightra",
+    "computer-vision",
+    "web-speech",
+    "earcons",
+    "a11y",
+    "accessibility",
+    "wcag",
+    "spatial-audio",
+    "blind-assistance"
+  ],
+  "author": "antonie-riziki <antonriziki@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/antonie-riziki/sightra-screen-reader/issues"
+  },
+  "homepage": "https://sightra.net"
+}
